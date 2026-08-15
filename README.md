@@ -13,12 +13,9 @@ An AI-powered retail platform combining **semantic search**, **LLM-based review 
 | **AI Shopping Copilot** | RAG chatbot answering product questions, grounded in real search + review data — cites sources, never hallucinates |
 | **Real-Time Ingestion** | Live product data pulled from eBay's Browse API (OAuth2), normalized and stored in PostgreSQL alongside demo data |
 
-## Architecture
-Streamlit Frontend → FastAPI Backend 
-┬── PostgreSQL (product/review data)
-├── Qdrant (vector search index)
-├── Groq/Llama (LLM inference)
-└── eBay Browse API (live ingestion)
+## How it works
+
+FastAPI backend connects to: **PostgreSQL** (stores product/review data), **Qdrant** (vector search index), **Groq/Llama** (LLM for sentiment + chat), and **eBay's Browse API** (real-time product ingestion). The Streamlit frontend calls the backend's REST API.
 ## Tech Stack
 
 `Python` · `FastAPI` · `Streamlit` · `FastEmbed` · `Qdrant` · `PostgreSQL` · `SQLAlchemy` · `Groq (Llama 3)` · `Docker` · `Render`
