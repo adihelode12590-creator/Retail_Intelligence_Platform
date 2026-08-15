@@ -1,15 +1,16 @@
 """
 Semantic Search Service — Module 1
-Embeds product title+description using sentence-transformers,
-stores vectors in Qdrant, and exposes a similarity search function.
+Embeds product title+description using fastembed (lightweight, ONNX-based —
+no PyTorch dependency, uses far less memory than sentence-transformers,
+which is required to fit in free-tier hosting's 512MB RAM limit).
+Stores vectors in Qdrant, and exposes a similarity search function.
 
-Now reads products from the database (populated via /ingest/migrate-csv
-and /ingest/ebay) instead of directly from the CSV — so search automatically
-includes both demo data and live-ingested real products.
+Reads products from the database (populated via /ingest/migrate-csv
+and /ingest/ebay) instead of directly from the CSV.
 """
 
 import os
-from sentence_transformers import SentenceTransformer
+from fastembed import TextEmbedding
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams, PointStruct
 from app.db import SessionLocal, init_db
@@ -17,13 +18,10 @@ from app.models import Product
 
 # ---- Config ----
 COLLECTION_NAME = "products"
-EMBEDDING_MODEL_NAME = "all-MiniLM-L6-v2"  # small, fast, free, good quality
+EMBEDDING_MODEL_NAME = "BAAI/bge-small-en-v1.5"  # 384-dim, lightweight, free, good quality
+EMBEDDING_DIM = 384
 QDRANT_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "qdrant_local_db")
 
-# For local dev: leave QDRANT_URL unset, uses on-disk storage (QDRANT_PATH).
-# For deployment: set QDRANT_URL + QDRANT_API_KEY (free tier at https://cloud.qdrant.io)
-# so the index survives server restarts/redeploys — local disk storage is NOT
-# persistent on most free hosting platforms.
 QDRANT_URL = os.getenv("QDRANT_URL", "")
 QDRANT_API_KEY = os.getenv("QDRANT_API_KEY", "")
 
@@ -32,10 +30,10 @@ _model = None
 _client = None
 
 
-def get_model() -> SentenceTransformer:
+def get_model() -> TextEmbedding:
     global _model
     if _model is None:
-        _model = SentenceTransformer(EMBEDDING_MODEL_NAME)
+        _model = TextEmbedding(model_name=EMBEDDING_MODEL_NAME)
     return _model
 
 
@@ -50,17 +48,13 @@ def get_client() -> QdrantClient:
 
 
 def build_index():
-    """Load all products from the database, embed each, and upsert into Qdrant.
-    Run this once (or whenever product data changes — e.g. after a new eBay ingest)."""
+    """Load all products from the database, embed each, and upsert into Qdrant."""
     init_db()
     db = SessionLocal()
     try:
         products = db.query(Product).all()
         if not products:
-            return {
-                "indexed_products": 0,
-                "warning": "No products in DB yet — call /ingest/migrate-csv or /ingest/ebay first",
-            }
+            return {"indexed_products": 0, "warning": "No products in DB yet — call /ingest/migrate-csv or /ingest/ebay first"}
 
         model = get_model()
         client = get_client()
@@ -69,11 +63,11 @@ def build_index():
             client.delete_collection(COLLECTION_NAME)
         client.create_collection(
             collection_name=COLLECTION_NAME,
-            vectors_config=VectorParams(size=384, distance=Distance.COSINE),
+            vectors_config=VectorParams(size=EMBEDDING_DIM, distance=Distance.COSINE),
         )
 
         texts = [f"{p.title}. {p.description}" for p in products]
-        embeddings = model.encode(texts, show_progress_bar=True)
+        embeddings = list(model.embed(texts))  # returns list of numpy arrays
 
         points = [
             PointStruct(
@@ -103,7 +97,7 @@ def search_products(query: str, top_k: int = 5):
     model = get_model()
     client = get_client()
 
-    query_vector = model.encode(query).tolist()
+    query_vector = list(model.embed([query]))[0].tolist()
 
     results = client.query_points(
         collection_name=COLLECTION_NAME,
