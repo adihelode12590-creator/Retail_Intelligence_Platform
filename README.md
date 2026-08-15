@@ -46,7 +46,7 @@ Then initialize data: `POST /ingest/migrate-csv` → `POST /search/build-index`
 
 ## Deployment
 
-Fully containerized, deployed on Render (backend + frontend as separate services). See [DEPLOYMENT.md](./DEPLOYMENT.md) for the complete guide.
+Fully containerized, deployed on Render (backend + frontend as separate services).
 
 ## Roadmap
 
