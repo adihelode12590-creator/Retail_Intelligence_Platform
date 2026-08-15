@@ -88,10 +88,3 @@ The response's `"mode"` field tells you whether it used the real LLM or fallback
 - ✅ Qdrant vector storage/search mechanics tested and working (see dev notes)
 - ⚠️ Embedding model download requires internet access — run `pip install` + first API call on your own machine, not in a network-restricted sandbox
 
-## Next Modules (coming next)
-1. ~~Semantic Search~~ ✅ (this one)
-2. Review Intelligence Engine (aspect sentiment + summarization)
-3. AI Shopping Copilot (RAG chatbot)
-4. Image Search (Phase 2)
-5. Product Recommendation (Phase 2)
-6. Price Intelligence (Phase 3)
